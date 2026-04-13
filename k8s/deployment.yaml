@@ -1,23 +1,20 @@
 ---
-# ── Namespace ───────────────────────────────────────────────────────────────
 apiVersion: v1
 kind: Namespace
 metadata:
   name: odoo
 
 ---
-# ── ConfigMap: non-secret config ────────────────────────────────────────────
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: odoo-config
   namespace: odoo
 data:
-  APP_VERSION: "{{APP_VERSION}}"       # Replaced by Jenkins sed command
-  BUILD_NUMBER: "{{BUILD_NUMBER}}"
+  APP_VERSION: "PLACEHOLDER_VERSION"
+  BUILD_NUMBER: "PLACEHOLDER_BUILD"
 
 ---
-# ── Secret: DB credentials (base64 encode your values) ────────────────────
 apiVersion: v1
 kind: Secret
 metadata:
@@ -25,10 +22,9 @@ metadata:
   namespace: odoo
 type: Opaque
 stringData:
-  db_password: "odoo_password"         # Replace with your real password
+  db_password: "odoo_password"
 
 ---
-# ── Deployment ───────────────────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,10 +32,6 @@ metadata:
   namespace: odoo
   labels:
     app: odoo
-    version: "{{APP_VERSION}}"         # Replaced by Jenkins
-  annotations:
-    app.version: "{{APP_VERSION}}"
-    build.number: "{{BUILD_NUMBER}}"
 spec:
   replicas: 2
   selector:
@@ -49,26 +41,21 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0                # Zero-downtime rolling update
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         app: odoo
-        version: "{{APP_VERSION}}"     # Shows in: kubectl get pods --show-labels
-      annotations:
-        # Changing this annotation forces a pod restart even if image didn't change
-        deployment.kubernetes.io/revision: "{{BUILD_NUMBER}}"
     spec:
       containers:
         - name: odoo
-          image: "{{IMAGE_TAG}}"       # e.g. your-user/odoo:v3  — replaced by Jenkins
-          imagePullPolicy: Always      # Always pull so :latest is never stale
+          image: PLACEHOLDER_IMAGE
+          imagePullPolicy: Always
           ports:
             - containerPort: 8069
               name: http
             - containerPort: 8072
               name: longpolling
-
           env:
             - name: APP_VERSION
               valueFrom:
@@ -80,11 +67,6 @@ spec:
                 configMapKeyRef:
                   name: odoo-config
                   key: BUILD_NUMBER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: odoo-db-secret
-                  key: db_password
             - name: HOST
               value: "postgres-service"
             - name: USER
@@ -94,34 +76,20 @@ spec:
                 secretKeyRef:
                   name: odoo-db-secret
                   key: db_password
-
-          args:
-            - "--config=/etc/odoo/odoo.conf"
-            - "--init=base"
-            - "-d"
-            - "odoo"
-            - "--without-demo=all"
-
-          # ── Probes ──────────────────────────────────────────────────
           readinessProbe:
             httpGet:
               path: /web/health
               port: 8069
-            initialDelaySeconds: 120
+            initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 10
-
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /web/health
               port: 8069
-            initialDelaySeconds: 180
+            initialDelaySeconds: 60
             periodSeconds: 20
-            failureThreshold: 5
-
-          # ── Version label exposed as env inside pod ─────────────────
-          # Check with: kubectl exec <pod> -- printenv APP_VERSION
-
+            failureThreshold: 3
           resources:
             requests:
               memory: "512Mi"
@@ -129,25 +97,21 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
-
           volumeMounts:
             - name: odoo-data
               mountPath: /var/lib/odoo
             - name: odoo-logs
               mountPath: /var/log/odoo
-
       volumes:
         - name: odoo-data
           persistentVolumeClaim:
             claimName: odoo-pvc
         - name: odoo-logs
           emptyDir: {}
-
       imagePullSecrets:
-        - name: docker-registry-secret   # kubectl create secret docker-registry ...
+        - name: docker-registry-secret
 
 ---
-# ── PersistentVolumeClaim ───────────────────────────────────────────────────
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -161,7 +125,6 @@ spec:
       storage: 10Gi
 
 ---
-# ── PostgreSQL Deployment (sidecar DB) ─────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
 metadata:
