@@ -28,8 +28,10 @@ COPY docker/odoo.conf /etc/odoo/odoo.conf
 # ── Create a tiny version-info endpoint ────────────────────────────────────
 # Odoo serves static files from /usr/lib/python3/dist-packages/odoo/addons/web/static
 # We write a small JSON file that can be fetched for health-check version probing.
+USER root
 RUN echo "{\"version\":\"${APP_VERSION}\",\"build\":\"${BUILD_NUMBER}\",\"commit\":\"${GIT_COMMIT}\"}" \
         > /usr/lib/python3/dist-packages/odoo/addons/web/static/version.json
+USER odoo
 
 EXPOSE 8069 8071 8072
 
