@@ -1,0 +1,65 @@
+---
+# ── Odoo Service (LoadBalancer or NodePort) ─────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: odoo-service
+  namespace: odoo
+  labels:
+    app: odoo
+spec:
+  type: LoadBalancer          # Change to NodePort if no cloud LB available
+  selector:
+    app: odoo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8069
+      protocol: TCP
+    - name: longpolling
+      port: 8072
+      targetPort: 8072
+      protocol: TCP
+
+---
+# ── PostgreSQL Service (ClusterIP — internal only) ──────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: odoo
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+# ── Ingress (optional, requires ingress-nginx or similar) ───────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odoo-ingress
+  namespace: odoo
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: odoo.example.com            # Replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo-service
+                port:
+                  number: 80
