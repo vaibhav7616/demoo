@@ -15,6 +15,7 @@ data:
   BUILD_NUMBER: "PLACEHOLDER_BUILD"
   odoo.conf: |
     [options]
+    admin_passwd = admin_password
     addons_path = /usr/lib/python3/dist-packages/odoo/addons
     data_dir = /var/lib/odoo
     db_host = postgres-service
@@ -120,17 +121,15 @@ spec:
               value: "odoo123"
 
           readinessProbe:
-            httpGet:
-              path: /web/login
+            tcpSocket:
               port: 8069
-            initialDelaySeconds: 60
+            initialDelaySeconds: 30
             periodSeconds: 10
 
           livenessProbe:
-            httpGet:
-              path: /web/login
+            tcpSocket:
               port: 8069
-            initialDelaySeconds: 90
+            initialDelaySeconds: 60
             periodSeconds: 20
 
           volumeMounts:
