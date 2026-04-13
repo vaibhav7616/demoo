@@ -33,7 +33,7 @@ metadata:
   labels:
     app: odoo
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: odoo
@@ -41,7 +41,7 @@ spec:
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 0
+      maxUnavailable: 1
   template:
     metadata:
       labels:
@@ -76,27 +76,34 @@ spec:
                 secretKeyRef:
                   name: odoo-db-secret
                   key: db_password
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: odoo-db-secret
+                  key: db_password
           readinessProbe:
             httpGet:
               path: /web/health
               port: 8069
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 5
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 10
+            timeoutSeconds: 10
           livenessProbe:
             httpGet:
               path: /web/health
               port: 8069
-            initialDelaySeconds: 60
-            periodSeconds: 20
-            failureThreshold: 3
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 5
+            timeoutSeconds: 10
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
+              memory: "256Mi"
+              cpu: "100m"
             limits:
-              memory: "2Gi"
-              cpu: "1000m"
+              memory: "1Gi"
+              cpu: "500m"
           volumeMounts:
             - name: odoo-data
               mountPath: /var/lib/odoo
